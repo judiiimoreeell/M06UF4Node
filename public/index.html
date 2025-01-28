@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+	<title>Pengti</title>
+<meta charset="UTF-8" />
+
+
+
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.87.0/phaser.min.js"></script>
+
+	<script>
+let player_num = 0;
+let ws = new WebSocket('ws://10.40.1.251:7777');
+ws.onmessage = function (msg){
+	console.log(msg.data);
+	let data = JSON.parse(msg.data);
+	if(data.player_num != null){
+	player_num = data.player_num;
+	console.log("Somos el jugador" + player_num);
+	}
+	else if(data.y != null){
+		if(player_num == 1){
+		player2.y = data.y}
+		else if(player_num == 2){
+		player1.y = data.y}
+		}
+	else if(data.by != null){
+		ball.x = data.bx;
+		ball.y = data.by;
+	}
+	else if(data.scores1 != null){
+	scorePlayer1 = data.scores1;
+	scorePlayer2 = data.scores2;
+	}
+	else if(data.game_over != null){
+		game_over = true;
+		if(data.winner == player_num){
+		game_over_text.setText("Has ganado");
+		game_over_text.setColor("#00ff00");
+		}
+		else{
+		game_over_text.setText("Has Perdido");
+		game_over_text.setColor("#ff0000");
+		}
+	}
+	else if(data.game_start != null){
+	game_start = true;
+	}
+
+};
+let win_w=800, win_h=450;
+
+let config = {
+    type: Phaser.AUTO,
+    width: win_w,
+    height: win_h,
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+let game = new Phaser.Game(config);
+let game_over = false;
+let winner = 0;
+let player1, player2;
+let player1_x=32, player1_y=225;
+let player2_x=768, player2_y=225;
+
+let players_w=16, players_h=96;
+
+let game_start = false;
+let ball;
+let ball_x=400, ball_y=225;
+let ball_w=16, ball_h=16;
+
+let ball_x_dir=1,ball_y_dir=1;
+
+let scorePlayer1 = 0;
+let scorePlayer2 = 0;
+let palaPlayer1;
+
+function preload ()
+{
+}
+
+function create ()
+{
+	game_over = false;
+	player1 = this.add.rectangle(player1_x, player1_y, players_w, players_h, 0xffffff);
+	player2 = this.add.rectangle(player2_x, player2_y, players_w, players_h, 0xffffff);
+	ball = this.add.rectangle(ball_x, ball_y, ball_w, ball_h, 0xffff00);
+//	palaPlayer1= this.input.keyboard.createCursorKeys();
+
+	this.scoreTextPlayer1 = this.add.text(100, 20, `Player 1: ${scorePlayer1}`, { fontSize: '20px', fill: '#fff' });
+    	this.scoreTextPlayer2 = this.add.text(600, 20, `Player 2: ${scorePlayer2}`, { fontSize: '20px', fill: '#fff' });
+   game_over_text = this.add.text(win_w/2,win_h/2,"Has Perdido", {fontFamily: 'Comic Sans MS', fontSize: 96});
+   this.cursors = this.input.keyboard.createCursorKeys();
+	get_ball_direction();
+}
+
+function update ()
+{
+	if(player_num == 0)
+		return;
+	if(game_start != true){
+		return;
+	}
+	if(game_over){
+		return;
+	}
+	if(player_num == 1){
+	ball.x += ball_x_dir;
+    ball.y += ball_y_dir;
+
+    // Ball collision with top and bottom
+    if (ball.y > win_h || ball.y < 0) {
+        ball_y_dir = -ball_y_dir;
+    }
+
+    // Ball collision with left and right sides
+    if (ball.x > win_w) {
+        scorePlayer1++;
+        resetBall();
+		get_ball_direction();
+        updateScores();
+    } else if (ball.x < 0) {
+        scorePlayer2++;
+        resetBall();
+		get_ball_direction();
+        updateScores();
+    }
+
+	
+    let scores ={
+		scores1:scorePlayer1,
+		scores2:scorePlayer2};
+	ws.send(JSON.stringify(scores));
+
+
+	let ball_pos={
+	bx:ball.x,
+	by:ball.y
+	};
+	ws.send(JSON.stringify(ball_pos) );
+}
+if(Phaser.Geom.Intersects.RectangleToRectangle(ball.getBounds(), player1.getBounds())){
+ball_x_dir = 1; //Cambia direccion to the right
+}
+if(Phaser.Geom.Intersects.RectangleToRectangle(ball.getBounds(),player2.getBounds())){
+ball_x_dir = -1; //Cambia direccion to the left
+}
+    // Moviment Player 1
+    if (this.cursors.up.isDown && player1.y - players_h / 2 > 0) {
+		if(player_num == 1)
+        player1.y -= 1;
+		else if(player_num == 2)
+		player2.y -= 1;
+    } else if (this.cursors.down.isDown && player1.y + players_h / 2 < win_h) {
+       	if(player_num == 1)
+        player1.y += 1;
+		else if(player_num == 2)
+		player2.y += 1;
+
+    }
+
+	let player_pos ={};
+	if(player_num == 1)
+	player_pos.y = player1.y
+	else if(player_num == 2)
+	player_pos.y = player2.y
+
+	ws.send( JSON.stringify(player_pos)  );
+	updateScores();
+}
+
+function resetBall() {
+    ball.x = ball_x;
+    ball.y = ball_y;
+    ball_x_dir = (Math.random() < 0.5 ? -1 : 1) * 2;
+    ball_y_dir = (Math.random() < 0.5 ? -1 : 1) * 2;
+}
+function get_ball_direction()
+{
+	let angle = Phaser.Math.Between(-75, 75);
+	angle = Phaser.Math.DegToRad(angle);
+	if(Math.abs(angle) < 10)
+	{
+	if(angle < 0)
+	angle -=10;
+	else
+		angle +=10;
+		}
+
+	ball_x_dir = Math.cos(angle) * (Math.random() < 0.5 ? -1 : 1);
+	ball_y_dir = Math.sin(angle);
+}
+function updateScores() {
+	game.scene.scenes[0].scoreTextPlayer1.setText(`Player 1: ${scorePlayer1}`);
+   	game.scene.scenes[0].scoreTextPlayer2.setText(`Player 2: ${scorePlayer2}`);
+}
+
+	</script>
+</head>
+<body>
+</body>
+</html>
+
