@@ -12,42 +12,49 @@
 	<script>
 let player_num = 0;
 let ws = new WebSocket('ws://10.40.1.251:7777');
-ws.onmessage = function (msg){
-	console.log(msg.data);
-	let data = JSON.parse(msg.data);
-	if(data.player_num != null){
-	player_num = data.player_num;
-	console.log("Somos el jugador" + player_num);
-	}
-	else if(data.y != null){
-		if(player_num == 1){
-		player2.y = data.y}
-		else if(player_num == 2){
-		player1.y = data.y}
-		}
-	else if(data.by != null){
-		ball.x = data.bx;
-		ball.y = data.by;
-	}
-	else if(data.scores1 != null){
-	scorePlayer1 = data.scores1;
-	scorePlayer2 = data.scores2;
-	}
-	else if(data.game_over != null){
-		game_over = true;
-		if(data.winner == player_num){
-		game_over_text.setText("Has ganado");
-		game_over_text.setColor("#00ff00");
-		}
-		else{
-		game_over_text.setText("Has Perdido");
-		game_over_text.setColor("#ff0000");
-		}
-	}
-	else if(data.game_start != null){
-	game_start = true;
-	}
+ws.onmessage = function (msg) {
+    console.log(msg.data);
+    let data = JSON.parse(msg.data);
 
+    if (data.player_num != null) {
+        player_num = data.player_num;
+        console.log("Somos el jugador " + player_num);
+    } 
+    else if (data.y != null) {
+        if (player_num == 1) player2.y = data.y;
+        else if (player_num == 2) player1.y = data.y;
+    } 
+    else if (data.by != null) {
+        ball.x = data.bx;
+        ball.y = data.by;
+    } 
+    else if (data.scores1 != null) {
+        scorePlayer1 = data.scores1;
+        scorePlayer2 = data.scores2;
+    } 
+    else if (data.game_over != null) {
+        game_over = true;
+        if (data.winner == player_num) {
+            game_message_text.setText("¡Has ganado!").setColor("#00ff00");
+        } else {
+            game_message_text.setText("¡Has perdido!").setColor("#ff0000");
+        }
+    } 
+    else if (data.game_start != null) {
+        game_start = true;
+        game_message_text.setText(""); 
+        musica.play();
+    } 
+    else if (data.countdown != null) {
+        game_message_text.setText(data.countdown).setColor("#ffffff");
+    } 
+    else if (data.message != null) {
+        game_message_text.setText(data.message).setColor(data.color || "#ffffff");
+    }
+	else if (data.spectator) {
+    game_start = true; 
+    console.log("Modo espectador activado");
+	}
 };
 let win_w=800, win_h=450;
 
@@ -81,11 +88,13 @@ let ball_x_dir=1,ball_y_dir=1;
 let scorePlayer1 = 0;
 let scorePlayer2 = 0;
 let palaPlayer1;
+let game_message_text; 
+let musica;
 
 function preload ()
 {
+	this.load.audio('Musica', '/Assets/musica.ogg');
 }
-
 function create ()
 {
 	game_over = false;
@@ -96,9 +105,10 @@ function create ()
 
 	this.scoreTextPlayer1 = this.add.text(100, 20, `Player 1: ${scorePlayer1}`, { fontSize: '20px', fill: '#fff' });
     	this.scoreTextPlayer2 = this.add.text(600, 20, `Player 2: ${scorePlayer2}`, { fontSize: '20px', fill: '#fff' });
-   game_over_text = this.add.text(win_w/2,win_h/2,"Has Perdido", {fontFamily: 'Comic Sans MS', fontSize: 96});
+		game_message_text = this.add.text(win_w / 2, win_h / 2 - 100, "", {fontFamily: 'Comic Sans MS',fontSize: '64px',color: "#ff0000",align: 'center'}).setOrigin(0.5);
    this.cursors = this.input.keyboard.createCursorKeys();
 	get_ball_direction();
+	musica = this.sound.add('Musica', { volume: 0.5, loop: true });
 }
 
 function update ()
